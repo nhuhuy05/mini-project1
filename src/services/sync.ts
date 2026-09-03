@@ -4,6 +4,9 @@ import type { SurveyRecord } from '../types/survey';
 
 export type SyncEventCallback = (isSyncing: boolean, pendingCount: number) => void;
 
+// Webhook Google Apps Script của bạn
+const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyr1jbX6LrpYSS3oz2S_-WL5jPAe_w7HsOB7OS419Hv4whDHClXqyXZtGuvYLCK1dq0/exec';
+
 class SyncEngine {
   private isSyncing = false;
   private listeners: SyncEventCallback[] = [];
@@ -35,15 +38,27 @@ class SyncEngine {
   }
 
   /**
-   * Giả lập gửi phiếu khảo sát lên Mock Server / Backend API
+   * Gửi phiếu khảo sát trực tiếp lên Google Sheets qua Apps Script Webhook
    */
   private async dispatchSurveyToServer(survey: SurveyRecord): Promise<boolean> {
-    // Độ trễ mạng thực tế 600ms
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    try {
+      console.log(`[SyncEngine] 🚀 Đang gửi dữ liệu phiếu ${survey.id} lên Google Sheets...`);
+      
+      await fetch(GOOGLE_SHEET_URL, {
+        method: 'POST',
+        mode: 'no-cors', // Chống lỗi chặn CORS của Google Apps Script khi gọi từ trình duyệt
+        headers: {
+          'Content-Type': 'text/plain',
+        },
+        body: JSON.stringify(survey),
+      });
 
-    console.log(`[SyncEngine] 🚀 Dispatched survey ID: ${survey.id} (${survey.category} - Room ${survey.room}) to server.`);
-    // Giả lập thành công 100% khi có mạng
-    return true;
+      console.log(`[SyncEngine] ✅ Đã đẩy thành công phiếu ${survey.id} vào Google Sheets!`);
+      return true;
+    } catch (err) {
+      console.error(`[SyncEngine] ❌ Lỗi khi gửi phiếu ${survey.id} lên Google Sheets:`, err);
+      return false;
+    }
   }
 
   /**
