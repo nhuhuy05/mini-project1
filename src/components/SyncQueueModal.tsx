@@ -1,7 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { X, RefreshCw, CheckCircle, Clock, Trash2 } from 'lucide-react';
+import {
+  X,
+  RefreshCw,
+  CheckCircle2,
+  Clock,
+  Trash2,
+  Star,
+  MapPin,
+  AlertCircle,
+  Eye,
+  FileSpreadsheet,
+  ExternalLink,
+} from 'lucide-react';
 import { getAllSurveys, deleteSurvey } from '../services/db';
-import { syncEngine } from '../services/sync';
+import { syncEngine, GOOGLE_SHEET_VIEW_URL } from '../services/sync';
 import type { SurveyRecord } from '../types/survey';
 
 interface SyncQueueModalProps {
@@ -10,13 +22,17 @@ interface SyncQueueModalProps {
   onSurveysChanged?: () => void;
 }
 
+type TabType = 'all' | 'pending' | 'synced';
+
 export const SyncQueueModal: React.FC<SyncQueueModalProps> = ({
   isOpen,
   onClose,
   onSurveysChanged,
 }) => {
   const [surveys, setSurveys] = useState<SurveyRecord[]>([]);
+  const [activeTab, setActiveTab] = useState<TabType>('all');
   const [isSyncing, setIsSyncing] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
   const fetchSurveys = async () => {
     const list = await getAllSurveys();
@@ -38,7 +54,7 @@ export const SyncQueueModal: React.FC<SyncQueueModalProps> = ({
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Bạn có chắc muốn xóa bản ghi khảo sát này khỏi bộ nhớ máy?')) {
+    if (confirm('Bạn có chắc chắn muốn xóa bản ghi khảo sát này khỏi bộ nhớ máy?')) {
       await deleteSurvey(id);
       await fetchSurveys();
       if (onSurveysChanged) onSurveysChanged();
@@ -50,141 +66,231 @@ export const SyncQueueModal: React.FC<SyncQueueModalProps> = ({
   const pendingList = surveys.filter((s) => s.status === 'PENDING_SYNC');
   const syncedList = surveys.filter((s) => s.status === 'SYNCED');
 
+  const displayedList =
+    activeTab === 'pending'
+      ? pendingList
+      : activeTab === 'synced'
+      ? syncedList
+      : surveys;
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
+        {/* Modal Header */}
         <div className="modal-header">
           <div>
-            <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>
-              Hàng đợi khảo sát Offline
+            <h3 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text-main)' }}>
+              Phiếu khảo sát đã nộp
             </h3>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-              {pendingList.length} bản ghi chờ đồng bộ
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: 2 }}>
+              Tổng cộng {surveys.length} phiếu ({pendingList.length} chờ đồng bộ)
             </p>
           </div>
 
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <button
-              type="button"
-              className="btn btn-primary"
-              style={{ padding: '6px 12px', fontSize: '12px' }}
-              onClick={handleManualSync}
-              disabled={isSyncing || pendingList.length === 0}
-            >
-              <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
-              <span>{isSyncing ? 'Đang gửi...' : 'Đồng bộ ngay'}</span>
-            </button>
+            {pendingList.length > 0 && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ padding: '6px 12px', fontSize: '12px' }}
+                onClick={handleManualSync}
+                disabled={isSyncing}
+                title="Đồng bộ ngay lên Google Sheets"
+              >
+                <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
+                <span>{isSyncing ? 'Đang gửi...' : 'Đồng bộ'}</span>
+              </button>
+            )}
             <button
               type="button"
               className="btn btn-secondary"
               style={{ padding: '6px 8px' }}
               onClick={onClose}
+              title="Đóng"
             >
               <X size={18} />
             </button>
           </div>
         </div>
 
+        {/* Tab Filter */}
+        <div className="history-tabs-container">
+          <button
+            type="button"
+            className={`history-tab ${activeTab === 'all' ? 'active' : ''}`}
+            onClick={() => setActiveTab('all')}
+          >
+            Tất cả ({surveys.length})
+          </button>
+          <button
+            type="button"
+            className={`history-tab ${activeTab === 'pending' ? 'active' : ''}`}
+            onClick={() => setActiveTab('pending')}
+          >
+            Chờ gửi ({pendingList.length})
+          </button>
+          <button
+            type="button"
+            className={`history-tab ${activeTab === 'synced' ? 'active' : ''}`}
+            onClick={() => setActiveTab('synced')}
+          >
+            Đã đồng bộ ({syncedList.length})
+          </button>
+        </div>
+
+        {/* Banner dẫn đến Google Sheets */}
+        <div className="sheet-link-banner">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <FileSpreadsheet size={18} color="#0f9d58" />
+            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>
+              Dữ liệu Cloud: Google Sheets
+            </span>
+          </div>
+          <a
+            href={GOOGLE_SHEET_VIEW_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="sheet-link-action"
+            title="Mở file Google Sheets trên tab mới"
+          >
+            <span>Mở Bảng tính</span>
+            <ExternalLink size={12} />
+          </a>
+        </div>
+
+        {/* Modal Body: Danh sách phiếu */}
         <div className="modal-body">
-          {surveys.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--text-muted)' }}>
-              Chưa có bản ghi khảo sát nào trong bộ nhớ.
+          {displayedList.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px 16px', color: 'var(--text-muted)' }}>
+              <AlertCircle size={36} style={{ margin: '0 auto 10px', opacity: 0.5 }} />
+              <p style={{ fontSize: '14px', fontWeight: 600 }}>Chưa có phiếu khảo sát nào</p>
+              <p style={{ fontSize: '12px', marginTop: 4 }}>
+                {activeTab === 'pending'
+                  ? 'Hiện không có phiếu nào đang chờ gửi.'
+                  : activeTab === 'synced'
+                  ? 'Chưa có phiếu nào được đồng bộ thành công.'
+                  : 'Hãy hoàn thành một khảo sát và bấm nộp để xem tại đây.'}
+              </p>
             </div>
           ) : (
-            <>
-              {/* Danh sách chờ đồng bộ */}
-              {pendingList.length > 0 && (
-                <div>
-                  <h4 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--warning)', marginBottom: '8px' }}>
-                    Chờ đồng bộ ({pendingList.length})
-                  </h4>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {pendingList.map((item) => (
-                      <div
-                        key={item.id}
-                        style={{
-                          padding: '12px',
-                          borderRadius: 'var(--radius)',
-                          border: '1px solid var(--warning)',
-                          backgroundColor: 'var(--warning-bg)',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                        }}
-                      >
-                        <div>
-                          <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-main)' }}>
-                            {item.category} • Phòng {item.room}
-                          </div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                            <Clock size={12} />
-                            <span>{new Date(item.createdAt).toLocaleTimeString()}</span>
-                            <span>• {item.rating} sao</span>
-                          </div>
-                        </div>
+            displayedList.map((item) => {
+              const isPending = item.status === 'PENDING_SYNC';
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--warning)' }}>
-                            Pending
-                          </span>
-                          <button
-                            type="button"
-                            className="btn btn-secondary"
-                            style={{ padding: '4px', border: 'none', color: 'var(--danger)' }}
-                            onClick={() => handleDelete(item.id)}
-                            title="Xóa bản ghi"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              return (
+                <div key={item.id} className="survey-detail-card">
+                  {/* Card Header: Phân loại & Trạng thái */}
+                  <div className="survey-card-top">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span className="survey-category-badge">{item.category}</span>
+                      <span className="survey-time">
+                        {new Date(item.createdAt).toLocaleString('vi-VN', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          day: '2-digit',
+                          month: '2-digit',
+                        })}
+                      </span>
+                    </div>
 
-              {/* Danh sách đã đồng bộ */}
-              {syncedList.length > 0 && (
-                <div style={{ marginTop: '12px' }}>
-                  <h4 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--success)', marginBottom: '8px' }}>
-                    Đã đồng bộ thành công ({syncedList.length})
-                  </h4>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {syncedList.map((item) => (
-                      <div
-                        key={item.id}
-                        style={{
-                          padding: '12px',
-                          borderRadius: 'var(--radius)',
-                          border: '1px solid var(--border)',
-                          backgroundColor: 'var(--surface-subtle)',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                        }}
-                      >
-                        <div>
-                          <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-main)' }}>
-                            {item.category} • Phòng {item.room}
-                          </div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                            <CheckCircle size={12} color="var(--success)" />
-                            <span>Đã gửi lúc {item.syncedAt ? new Date(item.syncedAt).toLocaleTimeString() : ''}</span>
-                          </div>
-                        </div>
-
-                        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--success)' }}>
-                          Synced
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {isPending ? (
+                        <span className="status-tag pending">
+                          <Clock size={11} />
+                          <span>Chờ gửi</span>
                         </span>
-                      </div>
-                    ))}
+                      ) : (
+                        <span className="status-tag synced">
+                          <CheckCircle2 size={11} />
+                          <span>Đã lên Sheets</span>
+                        </span>
+                      )}
+
+                      <button
+                        type="button"
+                        className="card-delete-btn"
+                        onClick={() => handleDelete(item.id)}
+                        title="Xóa phiếu này"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
+
+                  {/* Vị trí & Đánh giá */}
+                  <div className="survey-card-info-row">
+                    <div className="survey-info-item">
+                      <MapPin size={13} className="text-primary" />
+                      <span>
+                        {item.building ? item.building.split('-')[0].trim() : ''} • {item.floor} • Phòng {item.room}
+                      </span>
+                    </div>
+
+                    <div className="survey-rating-stars">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Star
+                          key={s}
+                          size={13}
+                          fill={s <= item.rating ? '#f59e0b' : 'none'}
+                          stroke={s <= item.rating ? '#f59e0b' : 'var(--text-light)'}
+                        />
+                      ))}
+                      <span style={{ fontSize: '11px', fontWeight: 700, marginLeft: 2, color: '#f59e0b' }}>
+                        {item.rating}/5
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Ghi chú lỗi chi tiết */}
+                  {item.defectNotes && (
+                    <div className="survey-notes-box">
+                      <strong>Lỗi:</strong> {item.defectNotes}
+                    </div>
+                  )}
+
+                  {/* Ảnh minh chứng (nếu có) */}
+                  {item.photoBase64 && (
+                    <div className="survey-photo-preview-bar">
+                      <div
+                        className="survey-thumb-wrapper"
+                        onClick={() => setSelectedPhoto(item.photoBase64 || null)}
+                        title="Bấm để phóng to xem ảnh"
+                      >
+                        <img
+                          src={item.photoBase64}
+                          alt="Minh chứng hiện trường"
+                          className="survey-thumb-img"
+                        />
+                        <div className="survey-thumb-overlay">
+                          <Eye size={14} color="#ffffff" />
+                        </div>
+                      </div>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                        Ảnh minh chứng đính kèm (Bấm để xem)
+                      </span>
+                    </div>
+                  )}
                 </div>
-              )}
-            </>
+              );
+            })
           )}
         </div>
       </div>
+
+      {/* Lightbox xem ảnh kích thước lớn */}
+      {selectedPhoto && (
+        <div className="photo-lightbox-overlay" onClick={() => setSelectedPhoto(null)}>
+          <div className="photo-lightbox-content" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="photo-lightbox-close"
+              onClick={() => setSelectedPhoto(null)}
+            >
+              <X size={20} />
+            </button>
+            <img src={selectedPhoto} alt="Ảnh phóng to" className="photo-lightbox-img" />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

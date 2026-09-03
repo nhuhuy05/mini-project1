@@ -13,7 +13,7 @@ import {
   loadDraft,
   clearDraft,
   saveSurvey,
-  getPendingSurveys,
+  getAllSurveys,
 } from './services/db';
 import { networkService } from './services/network';
 import { syncEngine } from './services/sync';
@@ -37,9 +37,18 @@ export default function App() {
     connectionType: 'wifi',
   });
   const [pendingCount, setPendingCount] = useState<number>(0);
+  const [totalCount, setTotalCount] = useState<number>(0);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [isQueueOpen, setIsQueueOpen] = useState<boolean>(false);
   const [draftToastVisible, setDraftToastVisible] = useState<boolean>(false);
+
+  // Cập nhật số lượng phiếu (tổng và pending)
+  const refreshCounts = useCallback(async () => {
+    const list = await getAllSurveys();
+    setTotalCount(list.length);
+    const pending = list.filter((s) => s.status === 'PENDING_SYNC');
+    setPendingCount(pending.length);
+  }, []);
 
   // 1. Khởi tạo theo dõi mạng và hàng đợi đồng bộ
   useEffect(() => {
@@ -52,16 +61,16 @@ export default function App() {
     const unsubscribeSync = syncEngine.subscribe((syncing, count) => {
       setIsSyncing(syncing);
       setPendingCount(count);
+      refreshCounts();
     });
 
-    // Cập nhật số lượng phiếu chờ ban đầu
-    getPendingSurveys().then((list) => setPendingCount(list.length));
+    refreshCounts();
 
     return () => {
       unsubscribeNetwork();
       unsubscribeSync();
     };
-  }, []);
+  }, [refreshCounts]);
 
   // 2. Khôi phục bản nháp từ IndexedDB khi mở ứng dụng (F5 không mất dữ liệu)
   useEffect(() => {
@@ -77,7 +86,6 @@ export default function App() {
 
   // 3. Tự động lưu bản nháp vào IndexedDB theo thời gian thực (Real-time Persistence)
   const persistDraft = useCallback(async (data: SurveyFormData, step: number) => {
-    // Chỉ lưu nếu người dùng đã bắt đầu nhập bất kỳ trường nào
     const hasData =
       data.building ||
       data.floor ||
@@ -118,7 +126,7 @@ export default function App() {
       case 3:
         return Boolean(formData.rating > 0 && formData.defectNotes.trim());
       case 4:
-        return true; // Bước 4 cho phép gửi (ảnh là tùy chọn hoặc đã đính kèm)
+        return true;
       default:
         return false;
     }
@@ -146,9 +154,8 @@ export default function App() {
     setFormData(INITIAL_FORM_DATA);
     setCurrentStep(1);
 
-    // Cập nhật số lượng pending
-    const pendingList = await getPendingSurveys();
-    setPendingCount(pendingList.length);
+    // Cập nhật số lượng phiếu
+    await refreshCounts();
 
     // Nếu đang có kết nối mạng, kích hoạt đồng bộ tự động ngay
     if (network.connected) {
@@ -157,7 +164,7 @@ export default function App() {
 
     alert(
       network.connected
-        ? '🎉 Phiếu khảo sát đã được gửi và đang đồng bộ lên hệ thống!'
+        ? '🎉 Phiếu khảo sát đã được gửi và đang đồng bộ lên Google Sheets!'
         : '📥 Bạn đang Offline. Phiếu khảo sát đã được lưu an toàn vào Hàng đợi IndexedDB và sẽ tự gửi khi có mạng!'
     );
   };
@@ -167,6 +174,7 @@ export default function App() {
       <Header
         network={network}
         pendingCount={pendingCount}
+        totalCount={totalCount}
         isSyncing={isSyncing}
         onOpenQueue={() => setIsQueueOpen(true)}
       />
@@ -238,13 +246,11 @@ export default function App() {
         )}
       </footer>
 
-      {/* Modal xem danh sách hàng đợi đồng bộ */}
+      {/* Modal xem danh sách phiếu đã nộp & chi tiết */}
       <SyncQueueModal
         isOpen={isQueueOpen}
         onClose={() => setIsQueueOpen(false)}
-        onSurveysChanged={() => {
-          getPendingSurveys().then((list) => setPendingCount(list.length));
-        }}
+        onSurveysChanged={refreshCounts}
       />
     </>
   );

@@ -1,10 +1,11 @@
 import React from 'react';
-import { Wifi, WifiOff, CloudUpload, ClipboardCheck } from 'lucide-react';
+import { Wifi, WifiOff, ClipboardList, CloudUpload } from 'lucide-react';
 import type { NetworkState } from '../types/survey';
 
 interface HeaderProps {
   network: NetworkState;
   pendingCount: number;
+  totalCount: number;
   isSyncing: boolean;
   onOpenQueue: () => void;
 }
@@ -12,6 +13,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   network,
   pendingCount,
+  totalCount,
   isSyncing,
   onOpenQueue,
 }) => {
@@ -19,7 +21,7 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="app-header">
       <div className="brand-section">
         <div className="brand-logo-badge">
-          <ClipboardCheck size={22} />
+          <ClipboardList size={22} />
         </div>
         <div>
           <h1 className="brand-title">VKU Field Survey</h1>
@@ -28,7 +30,7 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="header-actions">
-        {/* Network Status Badge */}
+        {/* Trạng thái kết nối mạng */}
         <div className={`status-badge ${network.connected ? 'online' : 'offline'}`}>
           <span className="status-dot" />
           {network.connected ? (
@@ -44,18 +46,23 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        {/* Sync Queue Badge Button */}
-        {pendingCount > 0 && (
-          <button
-            type="button"
-            className="sync-badge-btn"
-            onClick={onOpenQueue}
-            title="Xem danh sách hàng đợi đồng bộ"
-          >
-            <CloudUpload size={14} className={isSyncing ? 'animate-spin' : ''} />
+        {/* Nút Xem Danh sách phiếu đã nộp */}
+        <button
+          type="button"
+          className="history-header-btn"
+          onClick={onOpenQueue}
+          title="Xem danh sách các phiếu khảo sát đã nộp"
+        >
+          {pendingCount > 0 ? (
+            <CloudUpload size={15} className={isSyncing ? 'animate-spin text-warning' : 'text-warning'} />
+          ) : (
+            <ClipboardList size={15} />
+          )}
+          <span>Đã nộp ({totalCount})</span>
+          {pendingCount > 0 && (
             <span className="sync-badge-count">{pendingCount}</span>
-          </button>
-        )}
+          )}
+        </button>
       </div>
     </header>
   );
