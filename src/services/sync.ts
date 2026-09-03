@@ -5,7 +5,7 @@ import type { SurveyRecord } from '../types/survey';
 export type SyncEventCallback = (isSyncing: boolean, pendingCount: number) => void;
 
 // Webhook Google Apps Script của bạn
-const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyr1jbX6LrpYSS3oz2S_-WL5jPAe_w7HsOB7OS419Hv4whDHClXqyXZtGuvYLCK1dq0/exec';
+const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbzTsqwJYEGwNIhnsrfu_LbUp9ECWQ6aweQxJKt-6peJPtZE2dRkF2S4X-4yTv1_Bc2i/exec';
 
 // Link xem bảng tính Google Sheets trực tiếp
 export const GOOGLE_SHEET_VIEW_URL = 'https://docs.google.com/spreadsheets/d/1ry-4NJ-sXtrmQSzBmQkWriJqnWI_A1FnuIRDY96tp5A/edit?usp=sharing';

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Send, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Send, Check, CheckCircle2, CloudAlert, X } from 'lucide-react';
 import { Header } from './components/Header';
 import { StepIndicator } from './components/StepIndicator';
 import { Step1Location } from './components/Step1Location';
@@ -18,6 +18,12 @@ import {
 import { networkService } from './services/network';
 import { syncEngine } from './services/sync';
 import type { SurveyFormData, SurveyRecord, NetworkState } from './types/survey';
+
+interface ToastState {
+  type: 'success' | 'warning' | 'info';
+  title: string;
+  message: string;
+}
 
 const INITIAL_FORM_DATA: SurveyFormData = {
   building: '',
@@ -41,6 +47,14 @@ export default function App() {
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [isQueueOpen, setIsQueueOpen] = useState<boolean>(false);
   const [draftToastVisible, setDraftToastVisible] = useState<boolean>(false);
+  const [toast, setToast] = useState<ToastState | null>(null);
+
+  const triggerToast = (title: string, message: string, type: 'success' | 'warning' | 'info' = 'success') => {
+    setToast({ title, message, type });
+    setTimeout(() => {
+      setToast(null);
+    }, 4000);
+  };
 
   // Cập nhật số lượng phiếu (tổng và pending)
   const refreshCounts = useCallback(async () => {
@@ -160,13 +174,18 @@ export default function App() {
     // Nếu đang có kết nối mạng, kích hoạt đồng bộ tự động ngay
     if (network.connected) {
       syncEngine.syncPending();
+      triggerToast(
+        'Đã gửi phiếu thành công!',
+        'Dữ liệu đang được tự động đồng bộ lên Google Sheets.',
+        'success'
+      );
+    } else {
+      triggerToast(
+        'Đã lưu vào Hàng đợi Offline!',
+        'Thiết bị đang Offline. Phiếu đã được lưu an toàn vào IndexedDB.',
+        'warning'
+      );
     }
-
-    alert(
-      network.connected
-        ? '🎉 Phiếu khảo sát đã được gửi và đang đồng bộ lên Google Sheets!'
-        : '📥 Bạn đang Offline. Phiếu khảo sát đã được lưu an toàn vào Hàng đợi IndexedDB và sẽ tự gửi khi có mạng!'
-    );
   };
 
   return (
@@ -208,6 +227,31 @@ export default function App() {
         <div className="draft-toast">
           <Check size={14} color="#10b981" />
           <span>Đã lưu nháp IndexedDB</span>
+        </div>
+      )}
+
+      {/* Toast Notification Hiện đại */}
+      {toast && (
+        <div className={`app-toast-container ${toast.type}`}>
+          <div className="app-toast-icon">
+            {toast.type === 'success' ? (
+              <CheckCircle2 size={22} color="#10b981" />
+            ) : (
+              <CloudAlert size={22} color="#f59e0b" />
+            )}
+          </div>
+          <div className="app-toast-text">
+            <h5 className="app-toast-title">{toast.title}</h5>
+            <p className="app-toast-desc">{toast.message}</p>
+          </div>
+          <button
+            type="button"
+            className="app-toast-close"
+            onClick={() => setToast(null)}
+            title="Đóng thông báo"
+          >
+            <X size={16} />
+          </button>
         </div>
       )}
 
